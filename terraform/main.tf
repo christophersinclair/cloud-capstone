@@ -25,10 +25,10 @@ data "aws_ami" "alx" {
 }
 
 resource "aws_instance" "ex" {
-    ami = "data.aws_ami.alx.id"
+    ami = data.aws_ami.alx.id
     instance_type = "t2.micro"
 }
 
 output "aws_public_ip" {
-    value = "aws_instance.ex.public_dns"
+    value = aws_instance.ex.public_dns
 }

@@ -2,12 +2,15 @@
 
 
 #### AWS CLI ####
-aws configure set region us-east-1
+aws configure set region $(grep aws_region cli.ini | awk -F'=' '{ print $2 }')
 aws configure set aws_access_key_id $(grep aws_access_key_id cli.ini | awk -F'=' '{ print $2 }')
 aws configure set aws_secret_access_key $(grep aws_secret_access_key cli.ini | awk -F'=' '{ print $2 }')
 
-cd terraform
-terraform init
-terraform plan -out execution_plan.tfplan
 
-terraform apply "execution_plan.tfplan"
+### Terraform ###
+terraform -chdir=terraform init
+terraform -chdir=terraform plan -out execution_plan.tfplan
+
+if [ -f terraform/execution_plan.tfplan ]; then
+    terraform -chdir=terraform apply "execution_plan.tfplan"
+fi
