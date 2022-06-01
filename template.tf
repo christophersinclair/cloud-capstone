@@ -91,7 +91,7 @@ resource "aws_iam_role_policy_attachment" "lambda-s3-attach" {
 }
 
 resource "aws_lambda_layer_version" "fauna-lambda-db-layer" {
-    filename = "${path.module}/../lib/pymysql.zip"
+    filename = "${path.module}/../lib/layer.zip"
     layer_name = "fauna-lambda-db-layer-REPLACE_ME_UUID"
     compatible_runtimes = [ "python3.9" ]
 }

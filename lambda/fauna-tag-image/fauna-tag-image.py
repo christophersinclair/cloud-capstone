@@ -19,10 +19,12 @@ def tag_image(event, context):
 
     # See if image to tag exists in S3
     object_key = s3_dir
-    try:
-        file_content = s3_client.get_object(Bucket=s3_app_bucket, Key=object_key)["Body"].read()
-    except:
-        return "Image to tag not found."
-    else:
-        # Store the image tag in the database
-        return "Success"
+
+    # print(object_key_)
+    # try:
+    #     file_content = s3_client.get_object(Bucket=s3_app_bucket, Key=object_key)["Body"].read()
+    # except:
+    #     return "Image to tag not found."
+    # else:
+    #     # Store the image tag in the database
+    #     return "Success"

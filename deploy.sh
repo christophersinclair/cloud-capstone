@@ -5,13 +5,7 @@ function cleanup {
     for x in $(ls lambda); do
         rm -rf lambda/${x}/staging/
     done
-    for x in $(ls lib); do
-        if [[ ${x} == *.zip ]]; then
-            rm lib/${x}
-        else
-            continue
-        fi
-    done
+    rm lib/layer.zip
 }
 
 trap cleanup EXIT
@@ -31,9 +25,7 @@ cp template.tf terraform/main.tf
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/main.tf
 
 ### Library Packaging ###
-for x in $(ls lib); do
-    zip -qq -r lib/${x}.zip lib/${x}
-done
+zip -qq -r lib/layer.zip lib/python/
 
 ### Code Packaging and UUID replacement ###
 for x in $(ls lambda); do

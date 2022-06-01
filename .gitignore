@@ -6,3 +6,4 @@ terraform/.terraform.lock.hcl
 cli.ini
 terraform/*
 lib/
+lib/python/
