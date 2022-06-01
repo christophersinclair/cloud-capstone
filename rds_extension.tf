@@ -1,6 +1,6 @@
-resource "aws_s3_object" "rds_config" {
+resource "aws_s3_object" "app_config" {
     bucket = "fauna-admin-REPLACE_ME_UUID"
-    key = "rds_config.ini"
+    key = "app_config.ini"
     acl = "private"
-    source = "${path.module}/rds_config.ini"
+    source = "${path.module}/app_config.ini"
 }

@@ -25,7 +25,9 @@ cp template.tf terraform/main.tf
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/main.tf
 
 ### Library Packaging ###
-zip -qq -r lib/layer.zip lib/python/
+cp -R lib/python/ .
+zip -qq -r lib/layer.zip python/
+rm -rf python/
 
 ### Code Packaging and UUID replacement ###
 for x in $(ls lambda); do
@@ -60,10 +62,10 @@ RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint)
 
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_extension.tf
 
-cp config/rds_config.ini terraform/
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_config.ini
-sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/rds_config.ini
-sed -i -e "s/\"//g" terraform/rds_config.ini
+cp config/app_config.ini terraform/
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/app_config.ini
+sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/app_config.ini
+sed -i -e "s/\"//g" terraform/app_config.ini
 
 terraform -chdir=terraform plan -out execution_extension.tfplan
 

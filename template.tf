@@ -30,7 +30,7 @@ resource "aws_s3_bucket_acl" "fauna_images_bucket_acl" {
 
 resource "aws_s3_object" "initial_image" {
     bucket = aws_s3_bucket.fauna_images_bucket.bucket
-    key = "okapi"
+    key = "0519/okapi"
     acl = "private"
     source = "${path.module}/../images/okapi.jpg"
 }
