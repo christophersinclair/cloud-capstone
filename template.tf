@@ -90,12 +90,18 @@ resource "aws_iam_role_policy_attachment" "lambda-s3-attach" {
   policy_arn = aws_iam_policy.lambda_s3_policy.arn
 }
 
+resource "aws_lambda_layer_version" "fauna-lambda-db-layer" {
+    filename = "${path.module}/../lib/pymysql.zip"
+    layer_name = "fauna-lambda-db-layer-REPLACE_ME_UUID"
+    compatible_runtimes = [ "python3.9" ]
+}
 
 resource "aws_lambda_function" "fauna_tag_image_lambda" {
   filename = "${path.module}/../lambda/fauna-tag-image/staging/fauna-tag-image.zip"
   function_name = "fauna_tag_image-REPLACE_ME_UUID"
   role = aws_iam_role.iam_for_lambda.arn
   handler = "fauna-tag-image.tag_image"
+  layers = [ aws_lambda_layer_version.fauna-lambda-db-layer.arn ]
 
   runtime = "python3.9"
 }
@@ -107,13 +113,6 @@ resource "aws_lambda_function_url" "fauna_tag_image_lambda_function_url" {
 
 output "aws_lambda_function_url" {
   value = aws_lambda_function_url.fauna_tag_image_lambda_function_url.function_url
-}
-
-
-resource "aws_lambda_layer_version" "fauna-lambda-db-layer" {
-    filename = "${path.module}/../lib/pymysql.zip"
-    layer_name = "fauna-lambda-db-layer-REPLACE_ME_UUID"
-    compatible_runtimes = [ "python3.9" ]
 }
 
 resource "aws_db_instance" "fauna_db" {

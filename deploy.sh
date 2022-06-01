@@ -12,7 +12,6 @@ function cleanup {
             continue
         fi
     done
-    rm -rf terraform_rds
 }
 
 trap cleanup EXIT
@@ -63,21 +62,20 @@ fi
 ###################
 ### Lambda -> RDS Setup ###
 
-mkdir terraform_rds
-cp rds_extension.tf terraform_rds/main.tf
+cp rds_extension.tf terraform/rds_extension.tf
 
 RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint)
 
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform_rds/main.tf
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_extension.tf
 
-cp config/rds_config.ini terraform_rds/
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform_rds/rds_config.ini
-sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform_rds/rds_config.ini
-sed -i -e "s/\"//g" terraform_rds/rds_config.ini
+cp config/rds_config.ini terraform/
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_config.ini
+sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/rds_config.ini
+sed -i -e "s/\"//g" terraform/rds_config.ini
 
-terraform -chdir=terraform_rds init
-terraform -chdr=terraform_rds plan -out execution_plan.tfplan
+terraform -chdir=terraform init
+terraform -chdir=terraform plan -out execution_extension.tfplan
 
-if [ -f terraform_rds/execution_plan.tfplan ]; then
-    terraform -chdir=terraform_rds apply "execution_plan.tfplan"
+if [ -f terraform/execution_extension.tfplan ]; then
+    terraform -chdir=terraform apply "execution_extension.tfplan"
 fi
