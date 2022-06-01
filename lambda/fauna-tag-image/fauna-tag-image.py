@@ -15,17 +15,19 @@ def tag_image(event, context):
     config.read_string(rds_config['Body'].read().decode())
     
     db_endpoint = config.get('RDS','db_endpoint')
-    db_user = config.get('RDS', 'db_user')
+    db_user = config.get('RDS', 'db_username')
     db_password = config.get('RDS', 'db_password')
     db_name = config.get('RDS', 'db_name')
 
     try:
         conn = pymysql.connect(host=db_endpoint, user=db_user, passwd=db_password, db=db_name, connect_timeout=5)
     except pymysql.MySQLError as e:
-        logger.error("ERROR: Unexpected error: Could not connect to MySQL instance.")
-        logger.error(e)
-        sys.exit()
-
+        print(e)
+        return {
+            'statusCode': 500,
+            'body': json.dumps('Could not connect to database')
+        }
+    
     user_uuid = event['uuid']
     image = event['image_name']
     tags = event['tags']
