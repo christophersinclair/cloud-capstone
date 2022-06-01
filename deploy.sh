@@ -73,7 +73,6 @@ sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_config.ini
 sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/rds_config.ini
 sed -i -e "s/\"//g" terraform/rds_config.ini
 
-terraform -chdir=terraform init
 terraform -chdir=terraform plan -out execution_extension.tfplan
 
 if [ -f terraform/execution_extension.tfplan ]; then
