@@ -6,10 +6,11 @@ function cleanup {
         rm -rf lambda/${x}/staging/
     done
     for x in $(ls lib); do
-        if [[ "${x}" == "*.zip" ]]; then
-            rm ${x}
+        if [[ ${x} == *.zip ]]; then
+            rm lib/${x}
         else
             continue
+        fi
     done
     rm -rf terraform_rds
 }
@@ -69,13 +70,14 @@ RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint)
 
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform_rds/main.tf
 
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" config/rds_config.ini
-sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" config/rds_config.ini
-sed -i -e "s/\"//g" config/rds_config.ini
+cp config/rds_config.ini terraform_rds/
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform_rds/rds_config.ini
+sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform_rds/rds_config.ini
+sed -i -e "s/\"//g" terraform_rds/rds_config.ini
 
 terraform -chdir=terraform_rds init
 terraform -chdr=terraform_rds plan -out execution_plan.tfplan
 
-if [ -f terraform/execution_plan.tfplan ]; then
+if [ -f terraform_rds/execution_plan.tfplan ]; then
     terraform -chdir=terraform_rds apply "execution_plan.tfplan"
 fi
