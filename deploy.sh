@@ -5,6 +5,13 @@ function cleanup {
     for x in $(ls lambda); do
         rm -rf lambda/${x}/staging/
     done
+    for x in $(ls lib); do
+        if [[ "${x}" == "*.zip" ]]; then
+            rm ${x}
+        else
+            continue
+    done
+    rm -rf terraform_rds
 }
 
 trap cleanup EXIT
@@ -23,6 +30,11 @@ mkdir terraform
 cp template.tf terraform/main.tf
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/main.tf
 
+### Library Packaging ###
+for x in $(ls lib); do
+    zip -qq -r lib/${x}.zip lib/${x}
+done
+
 ### Code Packaging and UUID replacement ###
 for x in $(ls lambda); do
     mkdir lambda/${x}/staging/
@@ -30,6 +42,7 @@ for x in $(ls lambda); do
     sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" lambda/${x}/staging/${x}.py
     zip -qq -j lambda/${x}/staging/${x}.zip lambda/${x}/staging/${x}.py
 done
+
 ###################
 
 #### AWS CLI ####
@@ -43,4 +56,26 @@ terraform -chdir=terraform plan -out execution_plan.tfplan
 
 if [ -f terraform/execution_plan.tfplan ]; then
     terraform -chdir=terraform apply "execution_plan.tfplan"
+fi
+
+
+###################
+### Lambda -> RDS Setup ###
+
+mkdir terraform_rds
+cp rds_extension.tf terraform_rds/main.tf
+
+RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint)
+
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform_rds/main.tf
+
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" config/rds_config.ini
+sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" config/rds_config.ini
+sed -i -e "s/\"//g" config/rds_config.ini
+
+terraform -chdir=terraform_rds init
+terraform -chdr=terraform_rds plan -out execution_plan.tfplan
+
+if [ -f terraform/execution_plan.tfplan ]; then
+    terraform -chdir=terraform_rds apply "execution_plan.tfplan"
 fi

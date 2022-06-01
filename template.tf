@@ -22,7 +22,7 @@ resource "aws_s3_bucket" "fauna_images_bucket" {
     }
 }
 
-resource "aws_s3_bucket_acl" "fauna_images_bucket" {
+resource "aws_s3_bucket_acl" "fauna_images_bucket_acl" {
   bucket = aws_s3_bucket.fauna_images_bucket.id
   acl = "private"
 }
@@ -33,6 +33,19 @@ resource "aws_s3_object" "initial_image" {
     key = "okapi"
     acl = "private"
     source = "${path.module}/../images/okapi.jpg"
+}
+
+resource "aws_s3_bucket" "fauna_admin_bucket" {
+    bucket = "fauna-admin-REPLACE_ME_UUID"
+
+    tags = {
+        Name = "fauna-admin-REPLACE_ME_UUID"
+    }
+}
+
+resource "aws_s3_bucket_acl" "fauna_admin_bucket_acl" {
+  bucket = aws_s3_bucket.fauna_admin_bucket.id
+  acl = "private"
 }
 
 
@@ -96,3 +109,23 @@ output "aws_lambda_function_url" {
   value = aws_lambda_function_url.fauna_tag_image_lambda_function_url.function_url
 }
 
+
+resource "aws_lambda_layer_version" "fauna-lambda-db-layer" {
+    filename = "${path.module}/../lib/pymysql.zip"
+    layer_name = "fauna-lambda-db-layer-REPLACE_ME_UUID"
+    compatible_runtimes = [ "python3.9" ]
+}
+
+resource "aws_db_instance" "fauna_db" {
+    allocated_storage = 10
+    engine = "mysql"
+    engine_version = "5.7"
+    instance_class = "db.t3.micro"
+    db_name = "FaunaDB"
+    username = "fauna"
+    password = "changeme"
+}
+
+output "rds_endpoint" {
+    value = aws_db_instance.fauna_db.endpoint
+}
