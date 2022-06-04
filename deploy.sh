@@ -58,14 +58,14 @@ fi
 
 cp rds_extension.tf terraform/rds_extension.tf
 
-RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint)
+RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint | sed -e "s/\"//g" | sed -e "s/\:3306//g")
+RDS_PASSWORD=$(terraform -chdir=terraform output db_password | sed -e "s/\"//g")
 
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_extension.tf
 
 cp config/app_config.ini terraform/
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/app_config.ini
 sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/app_config.ini
-sed -i -e "s/\"//g" terraform/app_config.ini
+sed -i -e "s/REPLACE_ME_PASS/${RDS_PASSWORD}/g" terraform/app_config.ini
 
 terraform -chdir=terraform plan -out execution_extension.tfplan
 
