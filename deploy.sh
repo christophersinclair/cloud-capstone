@@ -2,10 +2,7 @@
 
 function cleanup {
     rm -rf terraform
-    for x in $(ls lambda); do
-        rm -rf lambda/${x}/staging/
-    done
-    rm lib/layer.zip
+    rm bash-test/bash-test.zip
 }
 
 trap cleanup EXIT
@@ -20,23 +17,17 @@ UUID=$(cat /proc/sys/kernel/random/uuid)
 echo 'UUID: '${UUID}
 
 ### Template UUID replacement and staging
+AWS_REGION=$(grep aws_region cli.ini | awk -F'=' '{ print $2 }' )
+
 mkdir terraform
 cp template.tf terraform/main.tf
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/main.tf
+sed -i -e "s/REPLACE_ME_REGION/${AWS_REGION}/g" terraform/main.tf
 
-### Library Packaging ###
-cp -R lib/python/ .
-zip -qq -r lib/layer.zip python/
-rm -rf python/
 
-### Code Packaging and UUID replacement ###
-for x in $(ls lambda); do
-    mkdir lambda/${x}/staging/
-    cp lambda/${x}/${x}.py lambda/${x}/staging/${x}.py
-    sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" lambda/${x}/staging/${x}.py
-    zip -qq -j lambda/${x}/staging/${x}.zip lambda/${x}/staging/${x}.py
-done
-
+chmod +x bash-test/bootstrap
+chmod +x bash-test/hello.sh
+zip -qq -j bash-test/bash-test.zip bash-test/*
 ###################
 
 #### AWS CLI ####

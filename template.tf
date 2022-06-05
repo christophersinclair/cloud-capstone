@@ -30,6 +30,76 @@ data "aws_subnet_ids" "all" {
     vpc_id = aws_default_vpc.default.id
 }
 
+data "aws_ami" "alx" {
+    most_recent = true
+    owners = [ "amazon" ]
+
+    filter {
+        name = "name"
+        values = ["amzn2-ami-hvm*"]
+    }
+
+    filter {
+        name = "architecture"
+        values = [ "x86_64" ]
+    }
+}
+
+resource "aws_network_interface" "fauna-interface" {
+    subnet_id = tolist(data.aws_subnet_ids.all.ids)[0]
+}
+
+resource "aws_security_group" "allow_ssh" {
+    name = "allow-fauna-ssh-REPLACE_ME_UUID"
+    description = "Allow ports"
+    vpc_id = aws_default_vpc.default.id
+
+    ingress {
+        from_port = 22
+        to_port = 22
+        protocol = "tcp"
+        cidr_blocks = [ "0.0.0.0/0" ]
+    }
+
+    ingress {
+        from_port = 80
+        to_port = 80
+        protocol = "tcp"
+        cidr_blocks = [ "0.0.0.0/0" ]
+    }
+
+    egress {
+        from_port = 0
+        to_port = 0
+        protocol = -1
+        cidr_blocks = [ "0.0.0.0/0" ]
+    }
+} 
+
+
+resource "aws_instance" "base-fauna" {
+    ami = data.aws_ami.alx.id
+    instance_type = "t3.micro"
+
+    vpc_security_group_ids = [ aws_security_group.allow_ssh.id ]
+
+    # network_interface {
+    #   network_interface_id = aws_network_interface.fauna-interface.id
+    #   device_index = 0
+    # }
+
+    provisioner "remote-exec" {
+        inline = [
+            "sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm",
+            "sudo yum install nginx -y",
+            "sudo service nginx start"
+        ]
+    }
+
+    tags = {
+      "Name" = "Fauna"
+    }
+}
 
 # Generate password for RDS
 resource "random_password" "db_password" {
@@ -100,126 +170,92 @@ resource "aws_s3_bucket_acl" "fauna_admin_bucket_acl" {
 }
 
 
-# Lambda -> S3 policy
-resource "aws_iam_policy" "lambda_s3_policy" {
-    name = "iam_for_lambda_s3-REPLACE_ME_UUID"
-    policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "s3:*",
-            "Resource": "arn:aws:s3:::*"
-        }
-    ]
-}
-EOF
-}
+# # Lambda -> S3 policy
+# resource "aws_iam_policy" "lambda_s3_policy" {
+#     name = "iam_for_lambda_s3-REPLACE_ME_UUID"
+#     policy = <<EOF
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Effect": "Allow",
+#             "Action": "s3:*",
+#             "Resource": "arn:aws:s3:::*"
+#         }
+#     ]
+# }
+# EOF
+# }
 
-resource "aws_iam_policy" "lambda_rds_policy" {
-    name = "iam_for_lambda_rds-REPLACE_ME_UUID"
-    policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "rds-data:*",
-            "Resource": "arn:aws:rds:::*"
-        }
-    ]
-}
-EOF
-}
-
-
-# Lambda role
-resource "aws_iam_role" "iam_for_lambda" {
-    name = "iam_for_lambda-REPLACE_ME_UUID"
-
-    assume_role_policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": "sts:AssumeRole",
-            "Principal": {
-                "Service": "lambda.amazonaws.com"
-            },
-            "Effect": "Allow",
-            "Sid":""
-        }
-    ]
-}
-EOF
-}
-
-resource "aws_iam_role_policy_attachment" "lambda-s3-attach" {
-    role = aws_iam_role.iam_for_lambda.name
-    policy_arn = aws_iam_policy.lambda_s3_policy.arn
-}
-
-resource "aws_iam_role_policy_attachment" "lambda-rds-attach" {
-    role = aws_iam_role.iam_for_lambda.name
-    policy_arn = aws_iam_policy.lambda_rds_policy.arn
-}
-
-resource "aws_iam_role_policy_attachment" "AWSLambdaVPCAccessExecutionRole" {
-    role       = aws_iam_role.iam_for_lambda.name
-    policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
-# Lambda Python module layer
-resource "aws_lambda_layer_version" "fauna-lambda-db-layer" {
-    filename = "${path.module}/../lib/layer.zip"
-    layer_name = "fauna-lambda-db-layer-REPLACE_ME_UUID"
-    compatible_runtimes = [ "python3.9" ]
-}
+# resource "aws_iam_policy" "lambda_rds_policy" {
+#     name = "iam_for_lambda_rds-REPLACE_ME_UUID"
+#     policy = <<EOF
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Effect": "Allow",
+#             "Action": "rds-data:*",
+#             "Resource": "arn:aws:rds:::*"
+#         }
+#     ]
+# }
+# EOF
+# }
 
 
-# Lambda tag-image function
-resource "aws_lambda_function" "fauna_tag_image_lambda" {
-    filename = "${path.module}/../lambda/fauna-tag-image/staging/fauna-tag-image.zip"
-    function_name = "fauna_tag_image-REPLACE_ME_UUID"
-    role = aws_iam_role.iam_for_lambda.arn
-    handler = "fauna-tag-image.tag_image"
-    layers = [ aws_lambda_layer_version.fauna-lambda-db-layer.arn ]
-    timeout = 30
+# # Lambda role
+# resource "aws_iam_role" "iam_for_lambda" {
+#     name = "iam_for_lambda-REPLACE_ME_UUID"
 
-    vpc_config {
-      security_group_ids = ["${data.aws_security_group.default_sg.id}"]
-      subnet_ids = ["${tolist(data.aws_subnet_ids.all.ids)[0]}"]
-    }
+#     assume_role_policy = <<EOF
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Action": "sts:AssumeRole",
+#             "Principal": {
+#                 "Service": "lambda.amazonaws.com"
+#             },
+#             "Effect": "Allow",
+#             "Sid":""
+#         }
+#     ]
+# }
+# EOF
+# }
 
-    runtime = "python3.9"
-}
+# resource "aws_iam_role_policy_attachment" "lambda-s3-attach" {
+#     role = aws_iam_role.iam_for_lambda.name
+#     policy_arn = aws_iam_policy.lambda_s3_policy.arn
+# }
 
-resource "aws_lambda_function_url" "fauna_tag_image_lambda_function_url" {
-    function_name = aws_lambda_function.fauna_tag_image_lambda.function_name
-    authorization_type = "NONE"
-}
+# resource "aws_iam_role_policy_attachment" "lambda-rds-attach" {
+#     role = aws_iam_role.iam_for_lambda.name
+#     policy_arn = aws_iam_policy.lambda_rds_policy.arn
+# }
 
-output "aws_lambda_function_url" {
-    value = aws_lambda_function_url.fauna_tag_image_lambda_function_url.function_url
-}
+# resource "aws_iam_role_policy_attachment" "AWSLambdaVPCAccessExecutionRole" {
+#     role       = aws_iam_role.iam_for_lambda.name
+#     policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+# }
 
 
-# Fauna RDS DB
-resource "aws_db_instance" "fauna_db" {
-    allocated_storage = 10
-    engine = "mysql"
-    engine_version = "5.7"
-    instance_class = "db.t3.micro"
-    db_name = "FaunaDB"
-    username = "fauna"
-    password = "${random_password.db_password.result}"
-}
+# # Fauna RDS DB
+# resource "aws_db_instance" "fauna_db" {
+#     allocated_storage = 10
+#     engine = "mysql"
+#     engine_version = "5.7"
+#     instance_class = "db.t3.micro"
+#     db_name = "FaunaDB"
+#     username = "fauna"
+#     password = "${random_password.db_password.result}"
+# }
 
-output "rds_endpoint" {
-    value = aws_db_instance.fauna_db.endpoint
-}
+# output "rds_endpoint" {
+#     value = aws_db_instance.fauna_db.endpoint
+# }
 
-output "rds_arn" {
-    value = aws_db_instance.fauna_db.arn
-}
+# output "rds_arn" {
+#     value = aws_db_instance.fauna_db.arn
+# }
