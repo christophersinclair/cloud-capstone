@@ -2,7 +2,6 @@
 
 function cleanup {
     rm -rf terraform
-    rm bash-test/bash-test.zip
 }
 
 trap cleanup EXIT
@@ -23,13 +22,7 @@ mkdir terraform
 cp template.tf terraform/main.tf
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/main.tf
 sed -i -e "s/REPLACE_ME_REGION/${AWS_REGION}/g" terraform/main.tf
-
-
-chmod +x bash-test/bootstrap
-chmod +x bash-test/hello.sh
-zip -qq -j bash-test/bash-test.zip bash-test/*
 ###################
-
 #### AWS CLI ####
 aws configure set region $(grep aws_region cli.ini | awk -F'=' '{ print $2 }')
 aws configure set aws_access_key_id $(grep aws_access_key_id cli.ini | awk -F'=' '{ print $2 }')
@@ -45,18 +38,18 @@ fi
 
 
 ###################
-### Lambda -> RDS Setup ###
+### RDS Setup ###
 
 cp rds_extension.tf terraform/rds_extension.tf
 
-RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint | sed -e "s/\"//g" | sed -e "s/\:3306//g")
-RDS_PASSWORD=$(terraform -chdir=terraform output db_password | sed -e "s/\"//g")
+#RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint | sed -e "s/\"//g" | sed -e "s/\:3306//g")
+#RDS_PASSWORD=$(terraform -chdir=terraform output db_password | sed -e "s/\"//g")
 
 sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_extension.tf
 
 cp config/app_config.ini terraform/
-sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/app_config.ini
-sed -i -e "s/REPLACE_ME_PASS/${RDS_PASSWORD}/g" terraform/app_config.ini
+#sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/app_config.ini
+#sed -i -e "s/REPLACE_ME_PASS/${RDS_PASSWORD}/g" terraform/app_config.ini
 
 terraform -chdir=terraform plan -out execution_extension.tfplan
 

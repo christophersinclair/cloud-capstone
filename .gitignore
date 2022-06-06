@@ -7,3 +7,4 @@ cli.ini
 terraform/*
 lib/
 lib/python/
+nature_template.zip

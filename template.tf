@@ -14,6 +14,7 @@ provider "aws" {
 
 resource "aws_default_vpc" "default" {}
 
+### All data needed from AWS
 data "aws_security_group" "default_sg" {
     filter {
       name = "description"
@@ -43,6 +44,16 @@ data "aws_ami" "alx" {
         name = "architecture"
         values = [ "x86_64" ]
     }
+}
+
+resource "tls_private_key" "fauna-private-key" {
+    algorithm = "RSA"
+    rsa_bits = 4096
+}
+
+resource "aws_key_pair" "generated_key" {
+    key_name = "fauna-private-key"
+    public_key = tls_private_key.fauna-private-key.public_key_openssh
 }
 
 resource "aws_network_interface" "fauna-interface" {
@@ -80,7 +91,7 @@ resource "aws_security_group" "allow_ssh" {
 resource "aws_instance" "base-fauna" {
     ami = data.aws_ami.alx.id
     instance_type = "t3.micro"
-
+    key_name = aws_key_pair.generated_key.key_name
     vpc_security_group_ids = [ aws_security_group.allow_ssh.id ]
 
     # network_interface {
@@ -88,17 +99,37 @@ resource "aws_instance" "base-fauna" {
     #   device_index = 0
     # }
 
+    iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+
+    connection {
+        type = "ssh"
+        host = self.public_ip
+        user = "ec2-user"
+        private_key = tls_private_key.fauna-private-key.private_key_pem
+    }
     provisioner "remote-exec" {
         inline = [
             "sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm",
-            "sudo yum install nginx -y",
-            "sudo service nginx start"
+            "sudo systemctl start amazon-ssm-agent",
+            "sudo yum update -y",
+            "sudo yum install -y httpd",
+            "sudo /usr/bin/aws s3api get-object --bucket fauna-admin-REPLACE_ME_UUID --key nature_template.zip /var/www/html/nature_template.zip",
+            "sudo unzip /var/www/html/nature_template.zip -d /var/www/html/",
+            "sudo systemctl start httpd"
         ]
     }
+
+    depends_on = [
+        aws_s3_object.html_template
+    ]
 
     tags = {
       "Name" = "Fauna"
     }
+}
+
+output "public_dns" {
+    value = aws_instance.base-fauna.public_dns
 }
 
 # Generate password for RDS
@@ -122,16 +153,6 @@ resource "aws_secretsmanager_secret_version" "sversion" {
 }
 EOF
 }
-
-output db_password {
-    value = random_password.db_password.result
-    sensitive = true
-}
-
-output secret_arn {
-    value = aws_secretsmanager_secret_version.sversion.arn
-}
-
 
 # Fauna application S3 bucket
 resource "aws_s3_bucket" "fauna_images_bucket" {
@@ -169,66 +190,56 @@ resource "aws_s3_bucket_acl" "fauna_admin_bucket_acl" {
     acl = "private"
 }
 
+resource "aws_s3_object" "html_template" {
+    bucket = aws_s3_bucket.fauna_admin_bucket.bucket
+    key = "nature_template.zip"
+    acl = "private"
+    source = "${path.module}/../nature_template.zip"
+}
 
-# # Lambda -> S3 policy
-# resource "aws_iam_policy" "lambda_s3_policy" {
-#     name = "iam_for_lambda_s3-REPLACE_ME_UUID"
-#     policy = <<EOF
-# {
-#     "Version": "2012-10-17",
-#     "Statement": [
-#         {
-#             "Effect": "Allow",
-#             "Action": "s3:*",
-#             "Resource": "arn:aws:s3:::*"
-#         }
-#     ]
-# }
-# EOF
-# }
+# EC2 -> S3 policy
+resource "aws_iam_role_policy" "ec2_s3_policy" {
+    name = "iam_for_ec2_s3-REPLACE_ME_UUID"
+    role = aws_iam_role.iam_for_ec2.id
+    policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": "arn:aws:s3:::*"
+        }
+    ]
+}
+EOF
+}
 
-# resource "aws_iam_policy" "lambda_rds_policy" {
-#     name = "iam_for_lambda_rds-REPLACE_ME_UUID"
-#     policy = <<EOF
-# {
-#     "Version": "2012-10-17",
-#     "Statement": [
-#         {
-#             "Effect": "Allow",
-#             "Action": "rds-data:*",
-#             "Resource": "arn:aws:rds:::*"
-#         }
-#     ]
-# }
-# EOF
-# }
+# EC2 role
+resource "aws_iam_role" "iam_for_ec2" {
+    name = "iam_for_ec2-REPLACE_ME_UUID"
 
+    assume_role_policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": "sts:AssumeRole",
+            "Principal": {
+                "Service": "ec2.amazonaws.com"
+            },
+            "Effect": "Allow",
+            "Sid":""
+        }
+    ]
+}
+EOF
+}
 
-# # Lambda role
-# resource "aws_iam_role" "iam_for_lambda" {
-#     name = "iam_for_lambda-REPLACE_ME_UUID"
-
-#     assume_role_policy = <<EOF
-# {
-#     "Version": "2012-10-17",
-#     "Statement": [
-#         {
-#             "Action": "sts:AssumeRole",
-#             "Principal": {
-#                 "Service": "lambda.amazonaws.com"
-#             },
-#             "Effect": "Allow",
-#             "Sid":""
-#         }
-#     ]
-# }
-# EOF
-# }
-
-# resource "aws_iam_role_policy_attachment" "lambda-s3-attach" {
-#     role = aws_iam_role.iam_for_lambda.name
-#     policy_arn = aws_iam_policy.lambda_s3_policy.arn
-# }
+resource "aws_iam_instance_profile" "ec2_profile" {
+    name = "ec2_profile"
+    role = aws_iam_role.iam_for_ec2.name
+}
 
 # resource "aws_iam_role_policy_attachment" "lambda-rds-attach" {
 #     role = aws_iam_role.iam_for_lambda.name
