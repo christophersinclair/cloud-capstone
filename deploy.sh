@@ -1,10 +1,50 @@
 #!/bin/bash
 
-function cleanup {
+function cleanup() {
     rm -rf terraform
+    docker system prune -f
 }
 
 trap cleanup EXIT
+
+function replacement() {
+    SERVICE=$1
+
+    cp services/${SERVICE}.tf terraform/
+    
+    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_UUID"; then
+        sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/${SERVICE}.tf
+    fi
+    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_REGION"; then
+        sed -i -e "s/REPLACE_ME_REGION/${AWS_REGION}/g" terraform/${SERVICE}.tf
+    fi
+    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_KEY_ID"; then
+        sed -i -e "s/REPLACE_ME_KEY_ID/${AWS_ACCESS_KEY_ID}/g" terraform/${SERVICE}.tf
+    fi
+    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_SECRET_KEY"; then
+        sed -i -e "s/REPLACE_ME_SECRET_KEY/${AWS_SECRET_ACCESS_KEY}/g" terraform/${SERVICE}.tf
+    fi
+    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_ACCT_ID"; then
+        sed -i -e "s/REPLACE_ME_ACCT_ID/${AWS_ACCOUNT_ID}/g" terraform/${SERVICE}.tf
+    fi
+    
+}
+
+function deploy_service() {
+    SERVICE=$1
+
+    if [ ! -f terraform/${SERVICE}.tf ]; then
+        replacement ${SERVICE}
+    fi
+
+    terraform -chdir=terraform init
+    terraform -chdir=terraform plan -out ${SERVICE}.tfplan
+
+    if [ -f terraform/${SERVICE}.tfplan ]; then
+        terraform -chdir=terraform apply "${SERVICE}.tfplan"
+    fi
+
+}
 
 ###################
 # This script deploys the Fauna infrastructure and application through the single execution. Because this runs
@@ -15,44 +55,36 @@ trap cleanup EXIT
 UUID=$(cat /proc/sys/kernel/random/uuid)
 echo 'UUID: '${UUID}
 
-### Template UUID replacement and staging
-AWS_REGION=$(grep aws_region cli.ini | awk -F'=' '{ print $2 }' )
-
-mkdir terraform
-cp template.tf terraform/main.tf
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/main.tf
-sed -i -e "s/REPLACE_ME_REGION/${AWS_REGION}/g" terraform/main.tf
-###################
+########################
 #### AWS CLI ####
-aws configure set region $(grep aws_region cli.ini | awk -F'=' '{ print $2 }')
-aws configure set aws_access_key_id $(grep aws_access_key_id cli.ini | awk -F'=' '{ print $2 }')
-aws configure set aws_secret_access_key $(grep aws_secret_access_key cli.ini | awk -F'=' '{ print $2 }')
+#######################
+AWS_REGION=$(grep aws_region cli.ini | awk -F'=' '{ print $2 }' )
+AWS_ACCESS_KEY_ID=$(grep aws_access_key_id cli.ini | awk -F'=' '{ print $2 }')
+AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key cli.ini | awk -F'=' '{ print $2 }')
 
-### Terraform ###
+aws configure set region ${AWS_REGION}
+aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+
+# Terraform deployments
+mkdir terraform
+cp services/initial.tf terraform/
+cp app_config.ini terraform/
 terraform -chdir=terraform init
-terraform -chdir=terraform plan -out execution_plan.tfplan
 
-if [ -f terraform/execution_plan.tfplan ]; then
-    terraform -chdir=terraform apply "execution_plan.tfplan"
-fi
+deploy_service initial
+deploy_service ecr
+deploy_service s3
+deploy_service ec2
+deploy_service rds
 
+AWS_ACCOUNT_ID=$(terraform -chdir=terraform output account_id | sed -e "s/\"//g")
 
-###################
-### RDS Setup ###
+# ECS/ECR Docker container push
+cp Dockerfile terraform/Dockerfile
+aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+docker build terraform/ --file terraform/Dockerfile --tag fauna-container-${UUID}
+docker tag fauna-container-${UUID}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fauna-container-${UUID}:latest
+docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fauna-container-${UUID}:latest
 
-cp rds_extension.tf terraform/rds_extension.tf
-
-#RDS_ENDPOINT=$(terraform -chdir=terraform output rds_endpoint | sed -e "s/\"//g" | sed -e "s/\:3306//g")
-#RDS_PASSWORD=$(terraform -chdir=terraform output db_password | sed -e "s/\"//g")
-
-sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/rds_extension.tf
-
-cp config/app_config.ini terraform/
-#sed -i -e "s/REPLACE_ME_ENDPOINT/${RDS_ENDPOINT}/g" terraform/app_config.ini
-#sed -i -e "s/REPLACE_ME_PASS/${RDS_PASSWORD}/g" terraform/app_config.ini
-
-terraform -chdir=terraform plan -out execution_extension.tfplan
-
-if [ -f terraform/execution_extension.tfplan ]; then
-    terraform -chdir=terraform apply "execution_extension.tfplan"
-fi
+deploy_service ecs
