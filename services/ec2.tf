@@ -4,7 +4,7 @@ resource "tls_private_key" "fauna-private-key" {
 }
 
 resource "aws_key_pair" "generated_key" {
-    key_name = "fauna-private-key"
+    key_name = "fauna-private-key-REPLACE_ME_UUID"
     public_key = tls_private_key.fauna-private-key.public_key_openssh
 }
 
@@ -71,72 +71,10 @@ resource "aws_instance" "base-fauna" {
     ]
 
     tags = {
-      "Name" = "Fauna"
+      "Name" = "Fauna-EC2"
     }
 }
 
 output "public_dns" {
     value = aws_instance.base-fauna.public_dns
-}
-
-# EC2 -> S3 policy
-resource "aws_iam_role_policy" "ec2_s3_policy" {
-    name = "iam_for_ec2_s3-REPLACE_ME_UUID"
-    role = aws_iam_role.iam_for_ec2.id
-    policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "s3:*",
-            "Resource": "arn:aws:s3:::*"
-        }
-    ]
-}
-EOF
-}
-
-# EC2 -> ECS policy
-resource "aws_iam_role_policy" "ec2_ecs_policy" {
-    name = "iam_for_ec2_ecs-REPLACE_ME_UUID"
-    role = aws_iam_role.iam_for_ec2.id
-    policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": "ecs:*",
-            "Resource": "arn:aws:ecs:::*"
-        }
-    ]
-}
-EOF
-}
-
-# EC2 role
-resource "aws_iam_role" "iam_for_ec2" {
-    name = "iam_for_ec2-REPLACE_ME_UUID"
-
-    assume_role_policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": "sts:AssumeRole",
-            "Principal": {
-                "Service": "ec2.amazonaws.com"
-            },
-            "Effect": "Allow",
-            "Sid":""
-        }
-    ]
-}
-EOF
-}
-
-resource "aws_iam_instance_profile" "ec2_profile" {
-    name = "ec2_profile"
-    role = aws_iam_role.iam_for_ec2.name
 }

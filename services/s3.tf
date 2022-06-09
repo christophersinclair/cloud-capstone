@@ -31,5 +31,5 @@ resource "aws_s3_object" "html_template" {
     bucket = aws_s3_bucket.fauna_admin_bucket.bucket
     key = "nature_template.zip"
     acl = "private"
-    source = "${path.module}/../nature_template.zip"
+    source = "${path.module}/../application/nature_template.zip"
 }

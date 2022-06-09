@@ -73,18 +73,20 @@ cp app_config.ini terraform/
 terraform -chdir=terraform init
 
 deploy_service initial
+deploy_service iam
 deploy_service ecr
 deploy_service s3
 deploy_service ec2
-deploy_service rds
+#deploy_service rds
 
 AWS_ACCOUNT_ID=$(terraform -chdir=terraform output account_id | sed -e "s/\"//g")
 
 # ECS/ECR Docker container push
-cp Dockerfile terraform/Dockerfile
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-docker build terraform/ --file terraform/Dockerfile --tag fauna-container-${UUID}
+docker build application/ --file application/Dockerfile --tag fauna-container-${UUID}
 docker tag fauna-container-${UUID}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fauna-container-${UUID}:latest
 docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fauna-container-${UUID}:latest
 
 deploy_service ecs
+
+echo 'Fauna website: '$(terraform -chdir=terraform output public_dns)
