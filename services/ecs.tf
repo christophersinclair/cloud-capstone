@@ -19,7 +19,7 @@ resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
     container_definitions = <<TASK_DEFINITION
 [
   {
-    "entryPoint": ["docker-entrypoint.sh"],
+    "entryPoint": ["/bin/sh /docker-entrypoint.sh"],
     "environment": [
       {"name": "AWS_DEFAULT_REGION", "value": "REPLACE_ME_REGION"},
       {"name": "AWS_ACCESS_KEY_ID", "value": "REPLACE_ME_KEY_ID"},
