@@ -69,7 +69,6 @@ aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
 # Terraform deployments
 mkdir terraform
 cp services/initial.tf terraform/
-cp app_config.ini terraform/
 terraform -chdir=terraform init
 
 deploy_service initial
@@ -77,7 +76,7 @@ deploy_service iam
 deploy_service ecr
 deploy_service s3
 deploy_service ec2
-#deploy_service rds
+deploy_service rds
 
 AWS_ACCOUNT_ID=$(terraform -chdir=terraform output account_id | sed -e "s/\"//g")
 
