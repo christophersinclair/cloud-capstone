@@ -31,5 +31,12 @@ resource "aws_s3_object" "html_template" {
     bucket = aws_s3_bucket.fauna_admin_bucket.bucket
     key = "nature_template.zip"
     acl = "private"
-    source = "${path.module}/../application/nature_template.zip"
+    source = "${path.module}/../application/staging/nature_template.zip"
+}
+
+resource "aws_s3_object" "initial_image" {
+    bucket = aws_s3_bucket.fauna_images_bucket.bucket
+    key = "0519/okapi"
+    acl = "private"
+    source = "${path.module}/../application/staging/okapi.jpeg"
 }

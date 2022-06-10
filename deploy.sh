@@ -2,6 +2,7 @@
 
 function cleanup() {
     rm -rf terraform
+    rm -rf application/staging/
     docker system prune -f
 }
 
@@ -22,7 +23,7 @@ function replacement() {
         sed -i -e "s/REPLACE_ME_KEY_ID/${AWS_ACCESS_KEY_ID}/g" terraform/${SERVICE}.tf
     fi
     if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_SECRET_KEY"; then
-        sed -i -e "s/REPLACE_ME_SECRET_KEY/${AWS_SECRET_ACCESS_KEY}/g" terraform/${SERVICE}.tf
+        sed -i -e "s~REPLACE_ME_SECRET_KEY~${AWS_SECRET_ACCESS_KEY}~g" terraform/${SERVICE}.tf
     fi
     if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_ACCT_ID"; then
         sed -i -e "s/REPLACE_ME_ACCT_ID/${AWS_ACCOUNT_ID}/g" terraform/${SERVICE}.tf
@@ -56,8 +57,7 @@ UUID=$(cat /proc/sys/kernel/random/uuid)
 echo 'UUID: '${UUID}
 
 ########################
-#### AWS CLI ####
-#######################
+# Config parsing
 AWS_REGION=$(grep aws_region cli.ini | awk -F'=' '{ print $2 }' )
 AWS_ACCESS_KEY_ID=$(grep aws_access_key_id cli.ini | awk -F'=' '{ print $2 }')
 AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key cli.ini | awk -F'=' '{ print $2 }')
@@ -65,6 +65,14 @@ AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key cli.ini | awk -F'=' '{ print 
 aws configure set region ${AWS_REGION}
 aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
 aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+
+# Application Staging
+
+mkdir application/staging/
+cp application/* application/staging/ 2>/dev/null
+sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" application/staging/app.py
+sed -i -e "s/REPLACE_ME_KEY_ID/${AWS_ACCESS_KEY_ID}/g" application/staging/app.py
+sed -i -e "s~REPLACE_ME_SECRET_KEY~${AWS_SECRET_ACCESS_KEY}~g" application/staging/app.py
 
 # Terraform deployments
 mkdir terraform
@@ -75,14 +83,14 @@ deploy_service initial
 deploy_service iam
 deploy_service ecr
 deploy_service s3
-deploy_service ec2
-deploy_service rds
+#deploy_service ec2
+#deploy_service rds
 
 AWS_ACCOUNT_ID=$(terraform -chdir=terraform output account_id | sed -e "s/\"//g")
 
 # ECS/ECR Docker container push
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-docker build application/ --file application/Dockerfile --tag fauna-container-${UUID}
+docker build application/staging/ --file application/staging/Dockerfile --tag fauna-container-${UUID}
 docker tag fauna-container-${UUID}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fauna-container-${UUID}:latest
 docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/fauna-container-${UUID}:latest
 

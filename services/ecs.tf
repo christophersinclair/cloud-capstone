@@ -3,6 +3,10 @@ resource "aws_ecs_cluster" "fauna-ecs-cluster" {
     name = "fauna-ecs-cluster-REPLACE_ME_UUID"
 }
 
+resource "aws_cloudwatch_log_group" "fauna-container-logs" {
+    name = "fauna-container-logs-REPLACE_ME_UUID"
+}
+
 resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
     family = "fauna-ecs-task-definition-REPLACE_ME_UUID"
     network_mode = "awsvpc"
@@ -15,7 +19,9 @@ resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
         operating_system_family = "LINUX"
         cpu_architecture = "X86_64"
     }
-
+    depends_on = [
+      aws_cloudwatch_log_group.fauna-container-logs
+    ]
     container_definitions = <<TASK_DEFINITION
 [
   {
@@ -32,6 +38,14 @@ resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
             "protocol": "tcp"
         }
     ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "fauna-container-logs-REPLACE_ME_UUID",
+        "awslogs-region": "REPLACE_ME_REGION",
+        "awslogs-stream-prefix": "awslogs-fauna"
+      }
+    },
     "memory": 1024,
     "cpu": 512,
     "essential": true,
