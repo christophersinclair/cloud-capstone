@@ -19,7 +19,7 @@ resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
     container_definitions = <<TASK_DEFINITION
 [
   {
-    "entryPoint": ["/bin/sh /docker-entrypoint.sh"],
+    "command": ["/docker-entrypoint.sh"],
     "environment": [
       {"name": "AWS_DEFAULT_REGION", "value": "REPLACE_ME_REGION"},
       {"name": "AWS_ACCESS_KEY_ID", "value": "REPLACE_ME_KEY_ID"},
@@ -46,8 +46,11 @@ resource "aws_ecs_service" "fauna-ecs-service" {
     name = "fauna-ecs-service-REPLACE_ME_UUID"
     cluster = aws_ecs_cluster.fauna-ecs-cluster.id
     task_definition = aws_ecs_task_definition.fauna-ecs-task-definition.arn
+    launch_type = "FARGATE"
+    platform_version = "1.3.0"
     desired_count = 2
     network_configuration {
       subnets = data.aws_subnet_ids.all.ids
+      assign_public_ip = true
     }
 }

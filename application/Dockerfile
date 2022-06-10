@@ -13,4 +13,4 @@ RUN pip3 install -r /var/www/requirements.txt
 
 EXPOSE 80
 
-ENTRYPOINT ["/bin/sh, /docker-entrypoint.sh"]
+CMD "/docker-entrypoint.sh"
