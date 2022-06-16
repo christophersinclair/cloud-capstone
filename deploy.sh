@@ -16,19 +16,12 @@ function replacement() {
     if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_UUID"; then
         sed -i -e "s/REPLACE_ME_UUID/${UUID}/g" terraform/${SERVICE}.tf
     fi
-    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_REGION"; then
-        sed -i -e "s/REPLACE_ME_REGION/${AWS_REGION}/g" terraform/${SERVICE}.tf
-    fi
     if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_KEY_ID"; then
         sed -i -e "s/REPLACE_ME_KEY_ID/${AWS_ACCESS_KEY_ID}/g" terraform/${SERVICE}.tf
     fi
     if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_SECRET_KEY"; then
         sed -i -e "s~REPLACE_ME_SECRET_KEY~${AWS_SECRET_ACCESS_KEY}~g" terraform/${SERVICE}.tf
-    fi
-    if cat terraform/${SERVICE}.tf | grep -q "REPLACE_ME_ACCT_ID"; then
-        sed -i -e "s/REPLACE_ME_ACCT_ID/${AWS_ACCOUNT_ID}/g" terraform/${SERVICE}.tf
-    fi
-    
+    fi    
 }
 
 function deploy_service() {
@@ -83,8 +76,9 @@ deploy_service initial
 deploy_service iam
 deploy_service ecr
 deploy_service s3
-#deploy_service ec2
-#deploy_service rds
+deploy_service ec2
+deploy_service securityhub
+deploy_service rds
 
 AWS_ACCOUNT_ID=$(terraform -chdir=terraform output account_id | sed -e "s/\"//g")
 

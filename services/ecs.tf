@@ -27,7 +27,7 @@ resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
   {
     "command": ["/docker-entrypoint.sh"],
     "environment": [
-      {"name": "AWS_DEFAULT_REGION", "value": "REPLACE_ME_REGION"},
+      {"name": "AWS_DEFAULT_REGION", "value": "${data.aws_region.current.name}"},
       {"name": "AWS_ACCESS_KEY_ID", "value": "REPLACE_ME_KEY_ID"},
       {"name": "AWS_SECRET_ACCESS_KEY", "value": "REPLACE_ME_SECRET_KEY"}
     ],
@@ -42,14 +42,14 @@ resource "aws_ecs_task_definition" "fauna-ecs-task-definition" {
       "logDriver": "awslogs",
       "options": {
         "awslogs-group": "fauna-container-logs-REPLACE_ME_UUID",
-        "awslogs-region": "REPLACE_ME_REGION",
+        "awslogs-region": "${data.aws_region.current.name}",
         "awslogs-stream-prefix": "awslogs-fauna"
       }
     },
     "memory": 1024,
     "cpu": 512,
     "essential": true,
-    "image": "REPLACE_ME_ACCT_ID.dkr.ecr.REPLACE_ME_REGION.amazonaws.com/fauna-container-REPLACE_ME_UUID:latest",
+    "image": "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/fauna-container-REPLACE_ME_UUID:latest",
     "name": "fauna-container-REPLACE_ME_UUID"
   }
 ]
