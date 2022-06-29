@@ -107,3 +107,26 @@ resource "aws_iam_role_policy" "ecs_logs_policy" {
 }
 EOF    
 }
+
+resource "aws_iam_role" "backup_role" {
+  name = "fauna-backup-role-REPLACE_ME_UUID"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": ["sts:AssumeRole"],
+      "Effect": "allow",
+      "Principal": {
+        "Service": ["backup.amazonaws.com"]
+      }
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "backup_role_policy_attachment" {
+    policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+    role = aws_iam_role.backup_role.name
+}

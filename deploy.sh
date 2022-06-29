@@ -79,6 +79,8 @@ deploy_service s3
 deploy_service ec2
 deploy_service securityhub
 deploy_service rds
+deploy_service iot
+deploy_service backup
 
 AWS_ACCOUNT_ID=$(terraform -chdir=terraform output account_id | sed -e "s/\"//g")
 
